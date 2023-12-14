@@ -29,17 +29,16 @@ const router = Router();
 
 router.post('/register', (req, res, next) => {
   passport.authenticate('local', async (err, user) => {
-    const { email, password } = user;
-    const { name } = req.body;
-    let findUser = await userModel.findOne({ email });
-    if (findUser)
+    const { username, email, password } = req.body;
+
+    if (user)
       return res.status(401).json({
         message: 'User already registered',
       });
-    findUser = await userModel.create({
-      username: name,
-      email: 'mohamed@gmail.com',
-      password: 'password',
+    user = await userModel.create({
+      username,
+      email,
+      password,
     });
 
     return res.status(200).json(user);

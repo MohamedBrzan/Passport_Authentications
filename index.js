@@ -9,6 +9,7 @@ import routes from './local/routes.js';
 // import Google from './google/google.js';
 // import { ping, createUser, getUserById } from './google/database.js';
 import { Strategy as LocalStrategy } from 'passport-local';
+import userModel from './local/userModel.js';
 
 mongoDatabase();
 
@@ -71,13 +72,15 @@ app.use(cookieParser());
 // );
 
 passport.use(
-  new LocalStrategy({ passReqToCallback: true }, function (
+  new LocalStrategy({ passReqToCallback: true }, async function (
     req,
     username,
     password,
     done
   ) {
-    return done(null, { email: username, password });
+    const findUser = await userModel.findOne({ email: username });
+    if (!findUser) return done(null, false);
+    return done(null, findUser);
   })
 );
 
