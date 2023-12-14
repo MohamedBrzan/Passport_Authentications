@@ -1,12 +1,14 @@
 import express from 'express';
 import debug from 'debug';
 import session from 'express-session';
+import cookieParser from 'cookie-parser';
 import passport from 'passport';
 import mongoDatabase from './local/DB.js';
 import routes from './local/routes.js';
 // import Facebook from './facebook/facebook.js';
 // import Google from './google/google.js';
 // import { ping, createUser, getUserById } from './google/database.js';
+import { Strategy as LocalStrategy } from 'passport-local';
 
 mongoDatabase();
 
@@ -14,7 +16,9 @@ const debugServer = debug('app:server');
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // import * as Linkedin from './linkedin/linkedin';
 // import { Strategy as FacebookStrategy } from 'passport-facebook';
@@ -53,6 +57,30 @@ app.use(express.json());
 //     }
 //   )
 // );
+
+//* Configure Local Passport
+
+// passport.use(
+//   new LocalStrategy(
+//     { passReqToCallback: true },
+//     (req, username, password, done) => {
+//       console.log('yes', { username, password });
+//       return done(null, { username, password });
+//     }
+//   )
+// );
+
+passport.use(
+  new LocalStrategy({ passReqToCallback: true }, function (
+    req,
+    username,
+    password,
+    done
+  ) {
+    return done(null, { email: username, password });
+  })
+);
+
 //* Save User into session (cookie)
 passport.serializeUser((user, done) => done(null, user));
 //* Retrieve user from session (cookie)
@@ -61,10 +89,11 @@ passport.deserializeUser((user, done) => done(null, user));
 //* Setup the session middleware
 app.use(
   session({
+    name: process.env.SESSION_NAME,
     secret: process.env.SESSION_SECRET,
     resave: true,
     saveUninitialized: true,
-    cookie: { maxAge: 1000 * 60 * 60 },
+    cookie: { maxAge: 1000 * 60 * 60 * 60 * 24 },
   })
 );
 
@@ -86,5 +115,3 @@ app.use('/api/v1', routes);
 app.listen(3000, () =>
   debugServer('App is listening on http://localhost:3000')
 );
-
-export { app, session, passport, debugServer };
