@@ -1,8 +1,10 @@
 import express from 'express';
 import debug from 'debug';
 import session from 'express-session';
-import cookieParser from 'cookie-parser';
 import passport from 'passport';
+import bodyParser from 'body-parser';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import mongoDatabase from './local/DB.js';
 import routes from './local/routes.js';
 // import Facebook from './facebook/facebook.js';
@@ -10,16 +12,21 @@ import routes from './local/routes.js';
 // import { ping, createUser, getUserById } from './google/database.js';
 import { Strategy as LocalStrategy } from 'passport-local';
 import userModel from './local/userModel.js';
+const app = express();
 
 mongoDatabase();
 
 const debugServer = debug('app:server');
 
-const app = express();
-
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
+app.use(
+  cors({
+    allowedHeaders: true,
+    credentials: true,
+  })
+);
 
 // import * as Linkedin from './linkedin/linkedin';
 // import { Strategy as FacebookStrategy } from 'passport-facebook';
@@ -78,27 +85,34 @@ passport.use(
     password,
     done
   ) {
-    const findUser = await userModel.findOne({ email: username });
+    const findUser = await userModel
+      .findOne({ email: username })
+      .select('email password');
     if (!findUser) return done(null, false);
+
+    if (!(await findUser.isValidPassword(password))) {
+      return done(null, false);
+    }
     return done(null, findUser);
   })
 );
-
-//* Save User into session (cookie)
-passport.serializeUser((user, done) => done(null, user));
-//* Retrieve user from session (cookie)
-passport.deserializeUser((user, done) => done(null, user));
 
 //* Setup the session middleware
 app.use(
   session({
     name: process.env.SESSION_NAME,
     secret: process.env.SESSION_SECRET,
-    resave: true,
+    resave: false,
     saveUninitialized: true,
-    cookie: { maxAge: 1000 * 60 * 60 * 60 * 24 },
+    cookie: { maxAge: 1000 * 60 * 60 * 24 * 365.25 },
   })
 );
+
+//* Save User into session (cookie)
+passport.serializeUser((user, done) => done(null, user));
+
+//* Retrieve user from session (cookie)
+passport.deserializeUser((user, done) => done(null, user));
 
 app.use(passport.initialize());
 app.use(passport.session());
